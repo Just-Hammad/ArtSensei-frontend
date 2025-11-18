@@ -22,6 +22,7 @@ export async function getChatSessions() {
           .from("chat_sessions")
           .select("*")
           .eq("user_id", userId)
+          .eq("is_initiated", true)
           .order("updated_at", { ascending: false });
 
         if (sessionsError) {

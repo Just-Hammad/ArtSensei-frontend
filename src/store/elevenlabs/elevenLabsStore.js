@@ -25,5 +25,19 @@ export const useElevenLabsStore = create((set) => ({
     // chatId stays persistent - don't reset it
     isMuted: false,
     isSpeaking: false
+  }),
+  
+  // Complete reset including chatId (for cleanup scenarios)
+  resetChatId: () => set({ chatId: null }),
+  
+  // Full reset of all state
+  resetAll: () => set({
+    isConnected: false,
+    isConnecting: false,
+    error: null,
+    conversationId: null,
+    chatId: null,
+    isMuted: false,
+    isSpeaking: false
   })
 }));

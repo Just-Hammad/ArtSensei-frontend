@@ -63,6 +63,8 @@ const HistoryCard = ({ session }) => {
 
         <MenuButton
           sessionId={session.id}
+          userId={userId}
+          currentTitle={session.title}
         />
       </div>
     </div>

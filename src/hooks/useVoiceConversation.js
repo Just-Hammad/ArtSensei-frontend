@@ -6,6 +6,8 @@ import { useImageBillboardStore } from "@/store/imageBillboard/imageBillboardSto
 import { useConversation } from "@elevenlabs/react";
 import { useElevenLabsStore } from "@/store/elevenlabs/elevenLabsStore";
 import { useUserStore } from "@/store/user/userStore";
+import { useMessagesStore } from "@/store/messages/messagesStore";
+import { EMPTY_STRING } from "@/constants/general";
 
 /**
  * Format session memories into a natural context string for the AI agent
@@ -15,10 +17,12 @@ const formatSessionContext = (sessionMemories) => {
     return "No prior session history.";
   }
 
-  const formattedMemories = sessionMemories.map((item) => {
-    const meta = item.metadata;
-    return `- ${meta.data}`;
-  }).join("\n");
+  const formattedMemories = sessionMemories
+    .map((item) => {
+      const meta = item.metadata;
+      return `- ${meta.data}`;
+    })
+    .join("\n");
 
   return `Current session insights:\n${formattedMemories}`;
 };
@@ -31,15 +35,17 @@ const formatGlobalContext = (globalMemories) => {
     return "No long-term user knowledge available.";
   }
 
-  const formattedMemories = globalMemories.map((item) => {
-    const meta = item.metadata;
-    return `- ${meta.data}`;
-  }).join("\n");
+  const formattedMemories = globalMemories
+    .map((item) => {
+      const meta = item.metadata;
+      return `- ${meta.data}`;
+    })
+    .join("\n");
 
   return `User profile and preferences:\n${formattedMemories}`;
 };
 
-export const useVoiceConversation = () => {
+export const useVoiceConversation = (options = {}) => {
   const {
     isConnected,
     isConnecting,
@@ -54,21 +60,24 @@ export const useVoiceConversation = () => {
   } = useElevenLabsStore();
 
   const userId = useUserStore((state) => state.userId);
+  const user = useUserStore((state) => state.user);
+  const pendingImagePathRef = options.pendingImagePathRef;
 
   const { setImagePath, setHighlightedCoordinates } = useImageBillboardStore();
-  const { 
-    stopCamera, 
-    clearImages, 
-    setAutoCapturing, 
+  const {
+    setAutoCapturing,
     fetchUserMemories,
     createAndSetChatSession,
-    getCurrentMainImage
+    getCurrentMainImage,
   } = useChatStore();
+  const { addUserMessage, addAssistantMessage } = useMessagesStore();
 
   const highlightTimeoutRef = useRef(null);
 
   // Connection audio (played on ElevenLabs connect/disconnect)
   const connectionAudioRef = useRef(null);
+
+  const customOnMessage = options.onMessage;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -97,26 +106,36 @@ export const useVoiceConversation = () => {
   };
 
   const conversation = useConversation({
+    textOnly: options.textMode || false,
+    // override the first message
+    overrides: {
+      agent: {
+        ...(options.firstMessage === EMPTY_STRING && { firstMessage: EMPTY_STRING }),
+      },
+    },
     onConnect: () => {
-      console.log("Connected to ElevenLabs");
       setConnected(true);
       setConnecting(false);
       setError(null);
-      // Play connection sound on successful connect
-      try {
-        playConnectionSound();
-      } catch (e) {
-        console.debug("Failed to play connection sound on connect:", e);
+      // Play connection sound on successful connect (only for voice mode)
+      if (!options.textMode) {
+        try {
+          playConnectionSound();
+        } catch (e) {
+          console.debug("Failed to play connection sound on connect:", e);
+        }
       }
     },
     onDisconnect: () => {
-      console.log("Disconnected from ElevenLabs");
       setAutoCapturing(false);
       reset();
-      try {
-        playConnectionSound();
-      } catch (e) {
-        console.debug("Failed to play connection sound on disconnect:", e);
+      // Play connection sound on disconnect (only for voice mode)
+      if (!options.textMode) {
+        try {
+          playConnectionSound();
+        } catch (e) {
+          console.debug("Failed to play connection sound on disconnect:", e);
+        }
       }
     },
     onError: (error) => {
@@ -126,10 +145,22 @@ export const useVoiceConversation = () => {
       setAutoCapturing(false);
     },
     onMessage: (message) => {
-      console.log("Message received:", message);
+      if (customOnMessage) {
+        customOnMessage(message);
+      } else {
+        if (message.source === 'user') {
+          addUserMessage(message.message);
+        } else if (message.source === 'ai') {
+          // Skip saving the assistant's first message (greeting)
+          const isFirstMessage = message.message?.toLowerCase().includes("i'm marcel") && 
+                                 message.message?.toLowerCase().includes("best drawing tutor");
+          if (!isFirstMessage) {
+            addAssistantMessage(message.message);
+          }
+        }
+      }
     },
     onModeChange: (mode) => {
-      console.log("Mode changed:", mode);
       setSpeaking(mode.mode === "speaking");
     },
     clientTools: {
@@ -137,224 +168,247 @@ export const useVoiceConversation = () => {
         console.log(message);
       },
       showImageOnScreen: async ({ imagePath }) => {
-        console.log("imagePath: " + imagePath);
         setImagePath(imagePath);
+        if (pendingImagePathRef) {
+          pendingImagePathRef.current = imagePath;
+        }
       },
       pointObjectInImage: async ({ query }) => {
-        console.log("🔍 pointObjectInImage called with query:", query);
-        
+
         try {
-          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-          const conversationIdFromStore = useElevenLabsStore.getState?.()?.conversationId;
+          const backendUrl =
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+          const conversationIdFromStore =
+            useElevenLabsStore.getState?.()?.conversationId;
           const chatIdFromStore = useElevenLabsStore.getState?.()?.chatId;
-          
+
           let filename = null;
           const imageToUse = getCurrentMainImage();
-          
+
           if (!imageToUse) {
-            console.warn("🔍 No image available for point detection");
             return {
               status: "error",
-              message: "No image available. Please upload or capture an image first."
+              message:
+                "No image available. Please upload or capture an image first.",
             };
           }
 
-          console.log("🔍 Current main image type:", typeof imageToUse, imageToUse.substring?.(0, 50));
+          if (
+            typeof imageToUse === "string" &&
+            imageToUse.startsWith("data:")
+          ) {
+            const blob = await fetch(imageToUse).then((r) => r.blob());
+            const file = new File([blob], `point-detection-${Date.now()}.jpg`, {
+              type: "image/jpeg",
+            });
 
-          if (typeof imageToUse === 'string' && imageToUse.startsWith('data:')) {
-            console.log("🔍 Image is a data URL, converting to blob and uploading...");
-            const blob = await fetch(imageToUse).then(r => r.blob());
-            const file = new File([blob], `point-detection-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            
             const formData = new FormData();
-            formData.append('image', file);
-            formData.append('conversation_id', chatIdFromStore || conversationIdFromStore || 'temp');
-            formData.append('user_id', userId || 'anonymous');
-            
-            const uploadResponse = await fetch(`${backendUrl}/api/v1/images/upload`, {
-              method: 'POST',
-              body: formData
-            });
-            
+            formData.append("image", file);
+            formData.append(
+              "conversation_id",
+              chatIdFromStore || conversationIdFromStore || "temp"
+            );
+            formData.append("user_id", userId || "anonymous");
+
+            const uploadResponse = await fetch(
+              `${backendUrl}/api/v1/images/upload`,
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+
             if (!uploadResponse.ok) {
               throw new Error(`Upload failed: ${uploadResponse.status}`);
             }
-            
+
             const uploadData = await uploadResponse.json();
-            filename = uploadData.filename || uploadData.public_image_url?.split('/').pop();
-            console.log("🔍 Data URL uploaded, filename:", filename);
+            filename =
+              uploadData.filename ||
+              uploadData.public_image_url?.split("/").pop();
           } else if (imageToUse instanceof File) {
-            console.log("🔍 Image is a File object, uploading...");
             const formData = new FormData();
-            formData.append('image', imageToUse);
-            formData.append('conversation_id', chatIdFromStore || conversationIdFromStore || 'temp');
-            formData.append('user_id', userId || 'anonymous');
-            
-            const uploadResponse = await fetch(`${backendUrl}/api/v1/images/upload`, {
-              method: 'POST',
-              body: formData
-            });
-            
+            formData.append("image", imageToUse);
+            formData.append(
+              "conversation_id",
+              chatIdFromStore || conversationIdFromStore || "temp"
+            );
+            formData.append("user_id", userId || "anonymous");
+
+            const uploadResponse = await fetch(
+              `${backendUrl}/api/v1/images/upload`,
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+
             if (!uploadResponse.ok) {
               throw new Error(`Upload failed: ${uploadResponse.status}`);
             }
-            
+
             const uploadData = await uploadResponse.json();
-            filename = uploadData.filename || uploadData.public_image_url?.split('/').pop();
+            filename =
+              uploadData.filename ||
+              uploadData.public_image_url?.split("/").pop();
             console.log("🔍 Image uploaded, filename:", filename);
-          } else if (typeof imageToUse === 'string') {
-            filename = imageToUse.split('/').pop();
+          } else if (typeof imageToUse === "string") {
+            filename = imageToUse.split("/").pop();
             console.log("🔍 Using existing image URL, filename:", filename);
           }
-          
+
           if (!filename) {
             throw new Error("Could not determine image filename");
           }
 
-          console.log("🔍 Calling Moondream API with filename:", filename, "query:", query);
-          
           const response = await fetch(`${backendUrl}/api/v1/vision/point`, {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               filename: filename,
               object: query,
-              max_points: 1
-            })
+              max_points: 1,
+            }),
           });
-          
+
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || `Point detection failed: ${response.status}`);
+            throw new Error(
+              errorData.detail || `Point detection failed: ${response.status}`
+            );
           }
-          
+
           const result = await response.json();
-          console.log("🔍 Moondream result:", result);
-          
+
           if (result.points && result.points.length > 0) {
             setHighlightedCoordinates(result.points);
-            
+
             if (highlightTimeoutRef.current) {
               clearTimeout(highlightTimeoutRef.current);
             }
-            
+
             highlightTimeoutRef.current = setTimeout(() => {
               setHighlightedCoordinates([]);
             }, 30000);
-            
+
             return {
-              status: 'success',
+              status: "success",
               points: result.points,
               count: result.count,
-              message: `Found ${result.count} instance(s) of ${query}`
+              message: `Found ${result.count} instance(s) of ${query}`,
             };
           } else {
             return {
-              status: 'success',
+              status: "success",
               points: [],
               count: 0,
-              message: `No instances of ${query} found in the image`
+              message: `No instances of ${query} found in the image`,
             };
           }
         } catch (error) {
-          console.error("🔍 Error in pointObjectInImage:", error);
           return {
-            status: 'error',
-            message: error.message || 'Point detection failed',
-            error: error.toString()
+            status: "error",
+            message: error.message || "Point detection failed",
+            error: error.toString(),
           };
         }
       },
     },
   });
 
-  const startConversation = useCallback(async (existingChatId = null) => {
-    try {
-      setConnecting(true);
-      setError(null);
+  const startConversation = useCallback(
+    async (existingChatId = null) => {
+      try {
+        setConnecting(true);
+        setError(null);
 
-      const response = await fetch("/api/elevenlabs-signed-url");
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      const userIdToUse = userId || "ANONYMOUS_USER";
-      let chatId;
-
-      if (existingChatId) {
-        console.log("[Voice Conversation] Using existing chat session:", existingChatId);
-        chatId = existingChatId;
-      } else {
-        console.log("[Voice Conversation] Creating new chat session...");
-        chatId = await createAndSetChatSession(userIdToUse);
-        
-        if (!chatId) {
-          throw new Error("Failed to create chat session");
+        if (!userId) {
+          throw new Error("User ID not available. Please wait for user initialization.");
         }
-        console.log("[Voice Conversation] Chat session created:", chatId);
-      }
 
-      console.log("[Voice Conversation] Fetching memories before starting session...");
-      
-      const memories = await fetchUserMemories(chatId, userIdToUse);
-      
-      console.log("[Voice Conversation] Memories fetched:", {
-        sessionCount: memories.session?.length || 0,
-        globalCount: memories.global?.length || 0,
-      });
+        const response = await fetch("/api/elevenlabs-signed-url");
+        const result = await response.json();
 
-      const sessionContext = formatSessionContext(memories.session);
-      const globalContext = formatGlobalContext(memories.global);
-
-      console.log("[Voice Conversation] Formatted contexts:", {
-        sessionContext,
-        globalContext,
-      });
-
-      const returnedConversationId = await conversation.startSession({
-        signedUrl: result.signedUrl,
-        connectionType: "websocket",
-        customLlmExtraBody: {
-          chatId,
-          userId: userIdToUse,
-        },
-        dynamicVariables: {
-          session_context: sessionContext,
-          global_context: globalContext,
+        if (!result.success) {
+          throw new Error(result.error);
         }
-      });
 
-      console.log("Conversation started with ID:", returnedConversationId);
-      console.log("Chat ID:", chatId);
-      console.log("User ID:", userIdToUse);
+        let chatId;
 
-      setConversationId(returnedConversationId || result.agentId);
-      setChatId(chatId);
-    } catch (error) {
-      console.error("Failed to start conversation:", error);
-      setError(error.message);
-      setConnecting(false);
-    }
-  }, [
-    conversation, 
-    setConnecting, 
-    setError, 
-    setConversationId, 
-    setChatId, 
-    userId, 
-    fetchUserMemories,
-    createAndSetChatSession
-  ]);
+        if (existingChatId) {
+          console.log(
+            "[Voice Conversation] Using provided chat session:",
+            existingChatId
+          );
+          chatId = existingChatId;
+        } else {
+          console.log("[Voice Conversation] Creating new chat session for user:", userId);
+          chatId = await createAndSetChatSession(userId);
+
+          if (!chatId) {
+            throw new Error("Failed to create chat session");
+          }
+          console.log("[Voice Conversation] Chat session created:", chatId);
+        }
+
+        console.log(
+          "[Voice Conversation] Fetching memories before starting session..."
+        );
+
+        const memories = await fetchUserMemories(chatId, userId);
+
+        console.log("[Voice Conversation] Memories fetched:", {
+          sessionCount: memories.session?.length || 0,
+          globalCount: memories.global?.length || 0,
+        });
+
+        const sessionContext = formatSessionContext(memories.session);
+        const globalContext = formatGlobalContext(memories.global);
+
+        console.log("[Voice Conversation] Formatted contexts:", {
+          sessionContext,
+          globalContext,
+        });
+
+        const returnedConversationId = await conversation.startSession({
+          signedUrl: result.signedUrl,
+          connectionType: "websocket",
+          customLlmExtraBody: {
+            chatId,
+            userId: userId,
+          },
+          dynamicVariables: {
+            session_context: sessionContext,
+            global_context: globalContext,
+            first_name: user.user_metadata?.full_name?.split(" ")[0] || "",
+          },
+        });
+
+        setConversationId(returnedConversationId || result.agentId);
+        setChatId(chatId);
+      } catch (error) {
+        console.error("Failed to start conversation:", error);
+        setError(error.message);
+        setConnecting(false);
+      }
+    },
+    [
+      conversation,
+      setConnecting,
+      setError,
+      setConversationId,
+      setChatId,
+      userId,
+      fetchUserMemories,
+      createAndSetChatSession,
+    ]
+  );
 
   const endConversation = useCallback(async () => {
-    console.log("[ELEVENLABS] ENDING SESSION")
     try {
       await conversation.endSession();
-      console.log("Conversation ended");
       reset();
     } catch (error) {
       console.error("Failed to end conversation:", error);
@@ -369,5 +423,6 @@ export const useVoiceConversation = () => {
     startConversation,
     endConversation,
     status: conversation.status,
+    sendUserMessage: conversation.sendUserMessage,
   };
 };

@@ -8,6 +8,7 @@ import {
 import { EMPTY_STRING } from "@/constants/general";
 import { uploadToServer } from "@/actions/elevenlabs";
 import { useElevenLabsStore } from "@/store";
+import { useUserStore } from "@/store/user/userStore";
 import { supabaseBrowser } from "@/lib/Supabase/client";
 import { generateSessionUserId, generateGlobalUserId } from "@/utils/memoryUtils";
 
@@ -30,6 +31,27 @@ export const useChatStore = create((set, get) => ({
   lastImageHash: null,
   lastCaptureTime: 0,
   currentSession: null,
+  pendingAttachments: [],
+  isUploadingAttachment: false,
+  activeAttachment: null,
+
+  // Set uploaded image when resuming a session
+  setUploadedImageFromResume: (imageUrl) => {
+    console.log("[Chat Store] Setting uploaded image from resumed session:", imageUrl);
+    
+    const attachment = {
+      id: `resume-${Date.now()}`,
+      localUrl: imageUrl,
+      serverUrl: imageUrl,
+      isUploading: false,
+    };
+
+    set({
+      uploadedImage: imageUrl,
+      activeAttachment: attachment,
+      showUploadInMain: true,
+    });
+  },
 
   startCamera: async () => {
     set({
@@ -213,16 +235,16 @@ export const useChatStore = create((set, get) => ({
       };
 
       const file = dataURLtoFile(imageDataUrl, `capture_${Date.now()}.jpg`);
-      const conversationIdFromStore = useElevenLabsStore.getState
-        ? useElevenLabsStore.getState().conversationId
+      const chatIdFromStore = useElevenLabsStore.getState
+        ? useElevenLabsStore.getState().chatId
         : null;
-      const userIdFromStore = useElevenLabsStore.getState
-        ? useElevenLabsStore.getState().userId
+      const userIdFromStore = useUserStore.getState
+        ? useUserStore.getState().userId
         : null;
 
       const conv =
         (opts && opts.conversationId) ||
-        conversationIdFromStore ||
+        chatIdFromStore ||
         (typeof window !== "undefined" && window.LMA_CONVERSATION_ID) ||
         null;
       const uid =
@@ -246,25 +268,95 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  uploadImage: (file) => {
+  uploadImage: async (file) => {
     const { capturedImage } = get();
     const reader = new FileReader();
-    reader.onload = (e) => {
-      if (capturedImage) {
-        set({
-          uploadedImage: e.target.result,
-          showUploadInMain: true,
-          showCapturedInMain: false,
-        });
-      } else {
-        set({
-          uploadedImage: e.target.result,
-          capturedImage: null,
-          showUploadInMain: true,
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    
+    return new Promise((resolve, reject) => {
+      reader.onload = async (e) => {
+        const imageDataUrl = e.target.result;
+        const attachment = {
+          id: Date.now().toString(),
+          localUrl: imageDataUrl,
+          file: file,
+          serverUrl: null,
+          isUploading: true,
+        };
+
+        set({ isUploadingAttachment: true });
+        set((state) => ({
+          pendingAttachments: [...state.pendingAttachments, attachment],
+        }));
+
+        if (capturedImage) {
+          set({
+            uploadedImage: imageDataUrl,
+            showUploadInMain: true,
+            showCapturedInMain: false,
+            activeAttachment: attachment,
+          });
+        } else {
+          set({
+            uploadedImage: imageDataUrl,
+            capturedImage: null,
+            showUploadInMain: true,
+            activeAttachment: attachment,
+          });
+        }
+
+        try {
+          const chatIdFromStore = useElevenLabsStore.getState
+            ? useElevenLabsStore.getState().chatId
+            : null;
+          const userIdFromStore = useUserStore.getState
+            ? useUserStore.getState().userId
+            : null;
+
+          const result = await uploadToServer(file, chatIdFromStore, userIdFromStore);
+          
+          if (result?.public_image_url) {
+            const updatedAttachment = {
+              ...attachment,
+              serverUrl: result.public_image_url,
+              isUploading: false,
+            };
+
+            set((state) => ({
+              pendingAttachments: state.pendingAttachments.map((a) =>
+                a.id === attachment.id ? updatedAttachment : a
+              ),
+              isUploadingAttachment: false,
+              activeAttachment: updatedAttachment,
+            }));
+
+            get().updateSessionCoverImage(result.public_image_url);
+            resolve(updatedAttachment);
+          } else {
+            set((state) => ({
+              pendingAttachments: state.pendingAttachments.filter(
+                (a) => a.id !== attachment.id
+              ),
+              isUploadingAttachment: false,
+            }));
+            reject(new Error("Upload failed"));
+          }
+        } catch (err) {
+          set((state) => ({
+            pendingAttachments: state.pendingAttachments.filter(
+              (a) => a.id !== attachment.id
+            ),
+            isUploadingAttachment: false,
+          }));
+          reject(err);
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+
+      reader.readAsDataURL(file);
+    });
   },
 
   swapImageAndCamera: () => {
@@ -289,6 +381,9 @@ export const useChatStore = create((set, get) => ({
       showCapturedInMain: true,
       lastImageHash: null,
       lastCaptureTime: 0,
+      pendingAttachments: [],
+      isUploadingAttachment: false,
+      activeAttachment: null,
     });
   },
 
@@ -298,6 +393,23 @@ export const useChatStore = create((set, get) => ({
 
   setAutoCapturing: (isAutoCapturing) => {
     set({ isAutoCapturing });
+  },
+
+  setActiveAttachment: (attachment) => {
+    set({ activeAttachment: attachment });
+  },
+
+  clearPendingAttachments: () => {
+    set({ pendingAttachments: [], isUploadingAttachment: false });
+  },
+
+  resetTextChatState: () => {
+    set({
+      uploadedImage: null,
+      activeAttachment: null,
+      pendingAttachments: [],
+      isUploadingAttachment: false,
+    });
   },
 
   setLastImageHash: (hash) => {
@@ -452,11 +564,11 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  createAndSetChatSession: async (userId) => {
+  createAndSetChatSession: async (userId, customMetadata = {}) => {
     try {
       const { createChatSession } = await import("@/actions/chat/create-session");
       
-      const result = await createChatSession(userId);
+      const result = await createChatSession(userId, customMetadata);
       
       if (result.success) {
         const setChatId = useElevenLabsStore.getState().setChatId;
@@ -522,6 +634,37 @@ export const useChatStore = create((set, get) => ({
     } catch (err) {
       console.error("[Chat Store] Error resuming session:", err);
       return null;
+    }
+  },
+
+  markSessionAsInitiated: async (sessionId) => {
+    const { currentSession } = get();
+    
+    // Check if session is already initiated to avoid unnecessary updates
+    if (currentSession?.is_initiated) {
+      console.log("[Chat Store] Session already initiated, skipping update");
+      return;
+    }
+
+    try {
+      const { initiateChatSession } = await import("@/actions/chat/initiate_session");
+      
+      const result = await initiateChatSession(sessionId);
+      
+      if (result.success) {
+        // Update the local state to reflect the initiated status
+        set({ 
+          currentSession: { 
+            ...currentSession, 
+            is_initiated: true 
+          } 
+        });
+        console.log("[Chat Store] Session marked as initiated:", sessionId);
+      } else {
+        console.error("[Chat Store] Failed to mark session as initiated:", result.message);
+      }
+    } catch (err) {
+      console.error("[Chat Store] Error marking session as initiated:", err);
     }
   },
 }));

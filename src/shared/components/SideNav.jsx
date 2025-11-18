@@ -9,6 +9,7 @@ import ProfileImage from "./ProfileImage";
 import {
   mainNavigationItems,
 } from "@/store/navStore/navigationItems";
+import { signOutAction } from "@/actions/auth/signout";
 
 const SideNav = ({ user }) => {
   const { profile_image, full_name, email } = user.user_metadata || {};
@@ -98,9 +99,7 @@ const SideNav = ({ user }) => {
           </div>
           <div className="flex flex-col gap-2 pt-8">
             <button
-              onClick={() => {
-                closeNavBar();
-              }}
+              onClick={signOutAction}
               className="flex items-center gap-3 px-4 text-red-400 rounded-lg hover:bg-white/60 transition-all duration-200"
               type="button"
             >

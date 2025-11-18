@@ -1,6 +1,5 @@
 import ChatHistoryComponent from "@/components/chat-history/ChatHistoryComponent";
 import { getChatSessions } from "@/actions/chat/get-sessions";
-import { redirect } from "next/navigation";
 
 const ChatHistory = async () => {
   const { data: sessions, error } = await getChatSessions();

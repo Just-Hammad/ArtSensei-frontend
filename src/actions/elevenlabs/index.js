@@ -84,6 +84,7 @@ export const uploadToServer = async (file, conversationId, userId) => {
     }
 
     const data = await resp.json();
+    console.log(data)
     console.info("[Upload] image uploaded to server", data);
     return data;
   } catch (err) {
