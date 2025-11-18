@@ -3,7 +3,7 @@
 import { revalidateTag } from "next/cache";
 import { getClient } from "@/lib/Supabase/server";
 
-export async function createChatSession(userId) {
+export async function createChatSession(userId, customMetadata = {}) {
   try {
     const supabase = await getClient();
 
@@ -15,6 +15,7 @@ export async function createChatSession(userId) {
         metadata: {
           created_via: "voice_chat",
           timestamp: new Date().toISOString(),
+          ...customMetadata,
         },
       })
       .select()

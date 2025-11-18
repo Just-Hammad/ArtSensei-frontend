@@ -13,9 +13,8 @@ import "./styles.css";
 
 const PlayButton = () => {
   const searchParams = useSearchParams();
-  const chatIdFromQuery = searchParams.get('chat_id');
+  const chatIdFromQuery = searchParams.get("chat_id");
   const hasAutoStarted = useRef(false);
-  
 
   const toggleCamera = useChatStore((state) => state.toggleCamera);
   const isCameraActive = useChatStore((state) => state.isCameraActive);
@@ -29,7 +28,7 @@ const PlayButton = () => {
   const setAutoCapturing = useChatStore((state) => state.setAutoCapturing);
 
   const { startConversation, endConversation, isConnecting } =
-    useVoiceConversation();
+    useVoiceConversation({textMode: false});
   const isConnected = useElevenLabsStore((state) => state.isConnected);
   const chatId = useElevenLabsStore((state) => state.chatId);
 
@@ -40,15 +39,20 @@ const PlayButton = () => {
 
   useEffect(() => {
     const autoStartConversation = async () => {
-      if (chatIdFromQuery && !hasAutoStarted.current && !isConnected && !isConnecting) {
+      if (
+        chatIdFromQuery &&
+        !hasAutoStarted.current &&
+        !isConnected &&
+        !isConnecting
+      ) {
         hasAutoStarted.current = true;
-        
+
         try {
           clearImages();
           toggleCamera();
-          
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
+
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
           if (!isAudioActive) {
             toggleAudio();
           }
@@ -56,7 +60,10 @@ const PlayButton = () => {
           await startConversation(chatIdFromQuery);
           setAutoCapturing(true);
         } catch (error) {
-          console.error("[PlayButton] Error auto-starting conversation:", error);
+          console.error(
+            "[PlayButton] Error auto-starting conversation:",
+            error
+          );
           hasAutoStarted.current = false;
         }
       }
@@ -80,10 +87,10 @@ const PlayButton = () => {
     } else {
       setAutoCapturing(false);
       clearImages();
-      
+
       if (isAudioActive) toggleAudio();
       if (isCameraActive) toggleCamera();
-      
+
       await endConversation();
     }
   };
@@ -99,7 +106,7 @@ const PlayButton = () => {
         justifyContent: "center",
       }}
     >
-  {/* connection audio moved into useVoiceConversation hook */}
+      {/* connection audio moved into useVoiceConversation hook */}
       {isActive && (
         <AudioWaveform isActive={isAudioActive || isConnected} size={135} />
       )}

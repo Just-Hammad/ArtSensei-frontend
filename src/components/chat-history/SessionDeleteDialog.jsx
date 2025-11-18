@@ -35,7 +35,7 @@ const SessionDeleteDialog = ({ sessionId, trigger, open, onOpenChange }) => {
           </div>
         </div>
 
-        <div className="bg-gray-50 px-6 py-2 flex items-center justify-end gap-3 border-t border-gray-200">
+        <div className="bg-gray-50 px-6 py-2 flex items-center justify-end gap-3 border-t border-gray-200 rounded-b-lg">
           <button
             type="button"
             onClick={(e) => {

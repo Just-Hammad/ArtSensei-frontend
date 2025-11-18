@@ -6,16 +6,40 @@ import {
 } from "@/components/ui/popover";
 import { MoreVertical } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import SessionDeleteDialog from "./SessionDeleteDialog";
 import SessionRenameDialog from "./SessionRenameDialog";
+import { useChatStore } from "@/store";
+import { useUserStore } from "@/store/user/userStore";
+import { useElevenLabsStore } from "@/store/elevenlabs/elevenLabsStore";
 
 const MenuButton = ({ sessionId, userId, currentTitle }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  
+  const router = useRouter();
+  const userIdFromStore = useUserStore((state) => state.userId);
+  const resumeSession = useChatStore((state) => state.resumeSession);
+  const setChatId = useElevenLabsStore((state) => state.setChatId);
 
   const handleMenuItemClick = (e, action) => {
     e.stopPropagation();
     if (action) action();
+  };
+
+  const handleContinueTextChat = async (e) => {
+    e.stopPropagation();
+    
+    try {
+      const userIdToUse = userId || userIdFromStore || "ANONYMOUS_USER";
+      
+      await resumeSession(sessionId, userIdToUse);
+      setChatId(sessionId);
+      
+      router.push(`/text-chat?chat_id=${sessionId}`);
+    } catch (error) {
+      console.error("[MenuButton] Error continuing text chat:", error);
+    }
   };
 
   return (
@@ -29,14 +53,14 @@ const MenuButton = ({ sessionId, userId, currentTitle }) => {
             <MoreVertical className="w-4 h-4 text-gray-700" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-30 p-2 gap-2">
+        <PopoverContent className="w-40 p-2 gap-2">
           <div className="flex flex-col">
-            {/* <button 
-              className="w-full text-left px-3 py-1 text-sm rounded-md hover:bg-gray-100 transition-colors"
-              onClick={(e) => handleMenuItemClick(e)}
+            <button 
+              className="w-full text-left px-3 py-1 text-sm rounded-md hover:bg-gray-100 transition-colors text-gray-700"
+              onClick={handleContinueTextChat}
             >
-              Detail
-            </button> */}
+              Continue text chat
+            </button>
             <SessionRenameDialog
               sessionId={sessionId}
               userId={userId}

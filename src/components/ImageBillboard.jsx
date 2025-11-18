@@ -27,6 +27,17 @@ export default function ImageBillboard() {
     }
   }, [isOpen, imagePath]);
 
+  useEffect(() => {
+    const handleEscapeKey = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => document.removeEventListener('keydown', handleEscapeKey);
+  }, [isOpen]);
+
   const handleClose = () => {
     setIsClosing(true);
     setIsVisible(false);
