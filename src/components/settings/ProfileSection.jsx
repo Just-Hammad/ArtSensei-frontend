@@ -17,10 +17,10 @@ const ProfileSection = () => {
           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-all duration-200" />
         </Link>
 
-        <div className="w-full px-4 py-4 group hover:bg-gray-50 transition-all duration-200 cursor-pointer flex items-center justify-between border-b border-gray-300">
+        <Link href="/settings/change-password" className="w-full px-4 py-4 group hover:bg-gray-50 transition-all duration-200 cursor-pointer flex items-center justify-between border-b border-gray-300">
           <span className="text-base text-gray-800">Change Password</span>
           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-all duration-200" />
-        </div>
+        </Link>
 
         <div className="w-full px-4 py-4 group hover:bg-gray-50 transition-all duration-200 cursor-pointer flex items-center justify-between">
           <span className="text-base text-gray-800">Subscription</span>

@@ -7,7 +7,7 @@ const EditProfileComponent = () => {
   return (
     <section id="edit-profile" className="p-4 flex flex-col gap-4">
       <header className="flex items-center gap-4">
-        <BackButton />
+        <BackButton backUrl={"/settings"} />
         <h1 className="text-3xl">Settings | Edit Profile</h1>
       </header>
 
