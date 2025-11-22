@@ -149,6 +149,14 @@ export const useVoiceConversation = (options = {}) => {
         customOnMessage(message);
       } else {
         if (message.source === 'user') {
+          const chatId = useElevenLabsStore.getState()?.chatId;
+          const currentSession = useChatStore.getState()?.currentSession;
+          
+          if (chatId && currentSession && !currentSession.is_initiated) {
+            const { markSessionAsInitiated } = useChatStore.getState();
+            markSessionAsInitiated(chatId);
+          }
+          
           addUserMessage(message.message);
         } else if (message.source === 'ai') {
           // Skip saving the assistant's first message (greeting)
@@ -343,6 +351,9 @@ export const useVoiceConversation = (options = {}) => {
             existingChatId
           );
           chatId = existingChatId;
+          
+          const { revalidateImageCache } = await import("@/actions/chat/revalidate-image-cache");
+          await revalidateImageCache(chatId, userId);
         } else {
           console.log("[Voice Conversation] Creating new chat session for user:", userId);
           chatId = await createAndSetChatSession(userId);
@@ -351,6 +362,9 @@ export const useVoiceConversation = (options = {}) => {
             throw new Error("Failed to create chat session");
           }
           console.log("[Voice Conversation] Chat session created:", chatId);
+          
+          const { revalidateImageCache } = await import("@/actions/chat/revalidate-image-cache");
+          await revalidateImageCache(chatId, userId);
         }
 
         console.log(
@@ -377,7 +391,7 @@ export const useVoiceConversation = (options = {}) => {
           connectionType: "websocket",
           customLlmExtraBody: {
             chatId,
-            userId: userId,
+            userId,
           },
           dynamicVariables: {
             session_context: sessionContext,
