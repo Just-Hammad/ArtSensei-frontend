@@ -42,6 +42,12 @@ const MenuButton = ({ sessionId, userId, currentTitle }) => {
     }
   };
 
+
+  const handleViewDetails = e => {
+    e.stopPropagation();
+
+    router.push(`/chat-history/${sessionId}`);
+  }
   return (
     <>
       <Popover>
@@ -55,6 +61,12 @@ const MenuButton = ({ sessionId, userId, currentTitle }) => {
         </PopoverTrigger>
         <PopoverContent className="w-40 p-2 gap-2">
           <div className="flex flex-col">
+            <button 
+              className="w-full text-left px-3 py-1 text-sm rounded-md hover:bg-gray-100 transition-colors text-gray-700"
+              onClick={handleViewDetails}
+            >
+              View details
+            </button>
             <button 
               className="w-full text-left px-3 py-1 text-sm rounded-md hover:bg-gray-100 transition-colors text-gray-700"
               onClick={handleContinueTextChat}

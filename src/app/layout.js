@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 import DesktopMessage from "./DesktopMessage";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }) {
         <div className="hidden sm:block h-[100dvh] overflow-hidden">
           <DesktopMessage />
         </div>
+        <Toaster />
       </body>
     </html>
   );
