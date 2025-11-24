@@ -106,8 +106,6 @@ export const useVoiceConversation = (options = {}) => {
   };
 
   const conversation = useConversation({
-    textOnly: options.textMode || false,
-    // override the first message
     overrides: {
       agent: {
         ...(options.firstMessage === EMPTY_STRING && { firstMessage: EMPTY_STRING }),
@@ -336,7 +334,8 @@ export const useVoiceConversation = (options = {}) => {
           throw new Error("User ID not available. Please wait for user initialization.");
         }
 
-        const response = await fetch("/api/elevenlabs-signed-url");
+        const textModeParam = options.textMode ? "?text_mode=true" : "";
+        const response = await fetch(`/api/elevenlabs-signed-url${textModeParam}`);
         const result = await response.json();
 
         if (!result.success) {
@@ -422,6 +421,7 @@ export const useVoiceConversation = (options = {}) => {
 
   const endConversation = useCallback(async () => {
     try {
+      console.log("[VOICE CONVERSATION HOOK] Ending conversation...");
       await conversation.endSession();
       reset();
     } catch (error) {
