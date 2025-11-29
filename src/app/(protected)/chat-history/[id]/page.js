@@ -6,8 +6,6 @@ const HistorySessionDetailPage = async ({params}) => {
 
     const session = await getChatSessionById(id);
 
-    console.log("Session Detail Page:", session);
-
   return <ChatHistoryDetailComponent session={session.data} />;
 }
 

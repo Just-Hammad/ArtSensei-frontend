@@ -3,6 +3,7 @@
 import { CHAT_SESSION_TABLE } from "@/constants/models";
 import { getClient } from "@/lib/Supabase/server";
 import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 
 export const renameSession = async (prevState, formData) => {
     try {
@@ -44,7 +45,10 @@ export const renameSession = async (prevState, formData) => {
             };
         }
 
-        revalidatePath("/");
+
+        revalidateTag(`chat-sessions-${userId}`);
+        revalidatePath("/chat-history");
+        
         return {
             success: true,
             data

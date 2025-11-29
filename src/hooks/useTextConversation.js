@@ -2,7 +2,6 @@
 
 import { useCallback, useState, useEffect, useRef } from "react";
 import { useVoiceConversation } from "./useVoiceConversation";
-import { useImageBillboardStore } from "@/store/imageBillboard/imageBillboardStore";
 import { useMessagesStore } from "@/store/messages/messagesStore";
 import { EMPTY_STRING } from "@/constants/general";
 

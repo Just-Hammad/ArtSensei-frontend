@@ -34,6 +34,8 @@ export const useChatStore = create((set, get) => ({
   pendingAttachments: [],
   isUploadingAttachment: false,
   activeAttachment: null,
+  pendingUploadedImages: [],
+  pendingCapturedImages: [],
 
   // Set uploaded image when resuming a session
   setUploadedImageFromResume: (imageUrl) => {
@@ -258,6 +260,9 @@ export const useChatStore = create((set, get) => ({
         
         if (data?.public_image_url) {
           get().updateSessionCoverImage(data.public_image_url);
+          set((state) => ({
+            pendingCapturedImages: [...state.pendingCapturedImages, data.public_image_url]
+          }));
         }
       }).catch(() => {});
     } catch (err) {
@@ -327,6 +332,7 @@ export const useChatStore = create((set, get) => ({
               ),
               isUploadingAttachment: false,
               activeAttachment: updatedAttachment,
+              pendingUploadedImages: [...state.pendingUploadedImages, result.public_image_url]
             }));
 
             get().updateSessionCoverImage(result.public_image_url);
@@ -384,6 +390,8 @@ export const useChatStore = create((set, get) => ({
       pendingAttachments: [],
       isUploadingAttachment: false,
       activeAttachment: null,
+      pendingUploadedImages: [],
+      pendingCapturedImages: [],
     });
   },
 
@@ -401,6 +409,15 @@ export const useChatStore = create((set, get) => ({
 
   clearPendingAttachments: () => {
     set({ pendingAttachments: [], isUploadingAttachment: false });
+  },
+
+  getPendingVoiceImages: () => {
+    const { pendingUploadedImages, pendingCapturedImages } = get();
+    return [...pendingUploadedImages, ...pendingCapturedImages];
+  },
+
+  clearPendingVoiceImages: () => {
+    set({ pendingUploadedImages: [], pendingCapturedImages: [] });
   },
 
   resetTextChatState: () => {

@@ -3,6 +3,7 @@ import SessionDescription from "../chat/SessionDescription"
 import SessionFooter from "../chat/SessionFooter"
 import SessionHeader from "../chat/SessionHeader"
 import SessionImagesPreview from "../chat/SessionImagesPreview"
+import SessionSummary from "./SessionSummary"
 
 const ChatHistoryDetailComponent = ({ session }) => {
   const displayTitle = session.title.toLowerCase().includes("untitled")
@@ -26,6 +27,8 @@ const ChatHistoryDetailComponent = ({ session }) => {
           updatedAt={session.updated_at}
           metadata={session.metadata}
         />
+        
+        <SessionSummary session={session} />
       </div>
 
       <footer className="p-4 border-t border-gray-300 mt-auto">

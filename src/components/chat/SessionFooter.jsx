@@ -1,40 +1,61 @@
-"use client"
-
-import { MessageSquare, Mic } from "lucide-react"
-import { useRouter } from "next/navigation"
+"use client";
+import { MessageSquare, Mic } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const SessionFooter = ({ sessionId }) => {
-  const router = useRouter()
+  const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleTextChat = () => {
-    router.push(`/text-chat?chat_id=${sessionId}`)
-  }
+  const handleTextChat = async () => {
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    
+    // Wait for the active state animation to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Navigate after animation
+    router.push(`/text-chat?chat_id=${sessionId}`);
+  };
 
-  const handleVoiceChat = () => {
-    router.push(`/chat?chat_id=${sessionId}`)
-  }
+  const handleVoiceChat = async () => {
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    
+    // Wait for the active state animation to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Navigate after animation
+    router.push(`/chat?chat_id=${sessionId}`);
+  };
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 space-y-3 pb-2">
-      <p className="text-lg text-gray-600 text-center">Continue with</p>
+    <div className="w-full max-w-2xl mx-auto px-4 space-y-4 pb-3">
+      <p className="text-base text-gray-600 text-center font-medium">
+        Continue with
+      </p>
       <div className="flex gap-3">
         <button
           onClick={handleTextChat}
-          className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-white hover:bg-gray-50 text-gray-800 rounded-2xl border border-gray-300 shadow-md hover:shadow-lg transition-all duration-300"
+          disabled={isNavigating}
+          className="flex-1 flex items-center justify-center gap-2.5 px-6 py-4 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-800 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <MessageSquare className="w-4 h-4" />
-          <span className="text-xs font-medium">Text Chat</span>
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-sm font-medium">Text Chat</span>
         </button>
         <button
           onClick={handleVoiceChat}
-          className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-black hover:bg-gray-800 text-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300"
+          disabled={isNavigating}
+          className="flex-1 flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-br from-gray-900 to-black hover:from-gray-800 hover:to-gray-900 active:from-gray-950 active:to-black text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Mic className="w-4 h-4" />
-          <span className="text-xs font-medium">Voice Chat</span>
+          <Mic className="w-5 h-5" />
+          <span className="text-sm font-medium">Voice Chat</span>
         </button>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SessionFooter
+export default SessionFooter;

@@ -1,3 +1,5 @@
+import { SUMMARY_GENERATION, SUMMARY_ERROR_MESSAGES } from "@/constants/chat";
+
 export function isValidEmail(email) {
   if (!email || typeof email !== 'string') {
     return false;
@@ -72,4 +74,16 @@ export function validateFullname(fullname) {
   }
 
   return null;
+}
+
+export function validateSummaryMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return { valid: false, error: SUMMARY_ERROR_MESSAGES.INVALID_MESSAGES };
+  }
+
+  if (messages.length < SUMMARY_GENERATION.MIN_MESSAGES_FOR_SUMMARY) {
+    return { valid: false, error: SUMMARY_ERROR_MESSAGES.INSUFFICIENT_MESSAGES };
+  }
+
+  return { valid: true };
 }

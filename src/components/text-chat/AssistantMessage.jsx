@@ -5,7 +5,12 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github.css";
 import { useImageBillboardStore } from "@/store/imageBillboard/imageBillboardStore";
 
-const AssistantMessage = ({ content, isStreaming = false, onContentUpdate, exampleImage }) => {
+const AssistantMessage = ({
+  content,
+  isStreaming = false,
+  onContentUpdate,
+  exampleImage,
+}) => {
   const { setImagePath, setIsOpen } = useImageBillboardStore();
   const [displayedContent, setDisplayedContent] = useState("");
   const [opacity, setOpacity] = useState(0);
@@ -13,7 +18,7 @@ const AssistantMessage = ({ content, isStreaming = false, onContentUpdate, examp
   const currentIndexRef = useRef(0);
   const containerRef = useRef(null);
   const previousContentRef = useRef("");
-  
+
   const isErrorMessage = content.toLowerCase().includes("error occurred");
 
   useEffect(() => {
@@ -33,8 +38,10 @@ const AssistantMessage = ({ content, isStreaming = false, onContentUpdate, examp
     }
 
     // Only reset if this is a completely new message (content changed from what we were animating)
-    const isNewMessage = previousContentRef.current !== content && currentIndexRef.current >= previousContentRef.current.length;
-    
+    const isNewMessage =
+      previousContentRef.current !== content &&
+      currentIndexRef.current >= previousContentRef.current.length;
+
     if (isNewMessage) {
       currentIndexRef.current = 0;
       setDisplayedContent("");
@@ -56,7 +63,7 @@ const AssistantMessage = ({ content, isStreaming = false, onContentUpdate, examp
       if (currentIndexRef.current < targetIndex) {
         currentIndexRef.current = targetIndex;
         setDisplayedContent(content.slice(0, targetIndex));
-        
+
         // Notify parent for auto-scroll
         if (onContentUpdate) {
           onContentUpdate();
@@ -91,38 +98,41 @@ const AssistantMessage = ({ content, isStreaming = false, onContentUpdate, examp
     <div className="flex justify-start mb-4 px-2">
       <div className="max-w-[85%] sm:max-w-[75%]">
         {exampleImage && (
-          <div className="flex justify-start mb-2">
+          <div className="flex justify-center rounded-lg overflow-hidden w-full mb-2">
             <div
               onClick={handleImageClick}
-              className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-300 cursor-pointer active:border-gray-500 transition-all"
+              className="w-[60%] sm:w-[65%] md:w-[70%] rounded-lg overflow-hidden cursor-pointer transition-all hover:opacity-90"
             >
               <img
                 src={`/${exampleImage}`}
                 alt="Example artwork"
-                className="w-full h-full object-cover"
+                className="w-full h-auto object-contain rounded-lg"
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.parentElement.style.display = 'none';
+                  e.target.style.display = "none";
+                  e.target.parentElement.style.display = "none";
                 }}
               />
             </div>
           </div>
         )}
-        <div 
+        <div
           ref={containerRef}
           className={`${
-            isErrorMessage 
-              ? "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-2 border-red-300 dark:border-red-700" 
+            isErrorMessage
+              ? "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-2 border-red-300 dark:border-red-700"
               : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100"
           } px-4 py-3 rounded-2xl break-words`}
           style={{
             opacity: opacity,
-            wordWrap: 'break-word',
-            overflowWrap: 'break-word'
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
           }}
         >
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+            >
               {displayedContent}
             </ReactMarkdown>
           </div>

@@ -105,7 +105,6 @@ const TextChatComponent = () => {
 
   return (
     <>
-      <ImageBillboard />
       <div className="flex flex-col gap-4 h-full">
         <div className="h-[25%] px-2 flex-shrink-0">
           <MediaContainer onUploadClick={handleUploadClick} />

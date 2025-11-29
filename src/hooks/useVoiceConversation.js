@@ -69,10 +69,13 @@ export const useVoiceConversation = (options = {}) => {
     fetchUserMemories,
     createAndSetChatSession,
     getCurrentMainImage,
+    getPendingVoiceImages,
+    clearPendingVoiceImages,
   } = useChatStore();
   const { addUserMessage, addAssistantMessage } = useMessagesStore();
 
   const highlightTimeoutRef = useRef(null);
+  const pendingVoiceImageRef = useRef(null);
 
   // Connection audio (played on ElevenLabs connect/disconnect)
   const connectionAudioRef = useRef(null);
@@ -144,8 +147,10 @@ export const useVoiceConversation = (options = {}) => {
     },
     onMessage: (message) => {
       if (customOnMessage) {
+        // TEXT CHAT MODE
         customOnMessage(message);
       } else {
+        // VOICE CHAT MODE
         if (message.source === 'user') {
           const chatId = useElevenLabsStore.getState()?.chatId;
           const currentSession = useChatStore.getState()?.currentSession;
@@ -155,13 +160,25 @@ export const useVoiceConversation = (options = {}) => {
             markSessionAsInitiated(chatId);
           }
           
-          addUserMessage(message.message);
+          const pendingImages = getPendingVoiceImages();
+          const formattedAttachments = pendingImages.map(url => ({
+            serverUrl: url,
+            localUrl: url
+          }));
+          
+          addUserMessage(message.message, formattedAttachments);
+          
+          if (pendingImages.length > 0) {
+            clearPendingVoiceImages();
+          }
         } else if (message.source === 'ai') {
           // Skip saving the assistant's first message (greeting)
           const isFirstMessage = message.message?.toLowerCase().includes("i'm marcel") && 
                                  message.message?.toLowerCase().includes("best drawing tutor");
           if (!isFirstMessage) {
-            addAssistantMessage(message.message);
+            const imageToAttach = pendingVoiceImageRef.current;
+            addAssistantMessage(message.message, imageToAttach);
+            pendingVoiceImageRef.current = null;
           }
         }
       }
@@ -177,6 +194,8 @@ export const useVoiceConversation = (options = {}) => {
         setImagePath(imagePath);
         if (pendingImagePathRef) {
           pendingImagePathRef.current = imagePath;
+        } else {
+          pendingVoiceImageRef.current = imagePath;
         }
       },
       pointObjectInImage: async ({ query }) => {
